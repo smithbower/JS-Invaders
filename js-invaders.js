@@ -24,6 +24,13 @@ var g_monsterMoveCounter = 0;
 var g_monsterMoveUpdateCounter = 0;
 var g_monsterDirectionFlag = 0;
 var g_monsterHeightOffset = 0;
+var g_monsterStartCount = 0;
+var g_monsterAccelerateMultiplier = 0.0065;
+
+var g_monsterFireCountdown = new Array();
+var g_monsterFireMaxTime = 25;
+var g_monsterFireMinTime = 1;
+var g_monsterProjectiles = new Array();
 
 var p_monster = {
 	column: 0,
@@ -54,8 +61,7 @@ var g_player = {
 };
 
 var g_playerProjectiles = new Array();
-var g_playerProjectileTimeout = 1;
-var g_playerProjectileCounter = 200;
+var g_playerMaxProjectiles = 1;
 
 
 /////////////////////////////////
@@ -135,8 +141,11 @@ var Init = function()
 		//Squids.
 		g_monsters.push(p_monster.create(i, 1, 1));
 		g_monsters.push(p_monster.create(i, 0, 1));
-	}
 
+		//Setup the fire countdowns.
+		g_monsterFireCountdown[i] = BoundedRandom(g_monsterFireMinTime, g_monsterFireMaxTime);
+	}
+	g_monsterStartCount = g_monsters.length;
 	g_monsterMoveCounter = 22;
 
 
@@ -205,12 +214,22 @@ var Render = function(canvas)
 	//Draw all the player projectiles.
 	for (var i = 0; i < g_playerProjectiles.length; i++)
 	{
-
 		canvas.beginPath();
 		canvas.strokeStyle = g_playerProjectiles[i].colour;
 		canvas.lineWidth = 3;
 		canvas.moveTo(g_playerProjectiles[i].x, g_playerProjectiles[i].y - 8);
 		canvas.lineTo(g_playerProjectiles[i].x, g_playerProjectiles[i].y + 8);
+		canvas.stroke();
+	}
+
+	//Draw all the monster projectiles.
+	for (var i = 0; i < g_monsterProjectiles.length; i++)
+	{
+		canvas.beginPath();
+		canvas.strokeStyle = g_monsterProjectiles[i].colour;
+		canvas.lineWidth = 3;
+		canvas.moveTo(g_monsterProjectiles[i].x, g_monsterProjectiles[i].y - 8);
+		canvas.lineTo(g_monsterProjectiles[i].x, g_monsterProjectiles[i].y + 8);
 		canvas.stroke();
 	}
 }
@@ -245,13 +264,11 @@ var Update = function(delta, canvas)
 	/////////////////////////////////
 	//PLAYER PROJECTILES
 	/////////////////////////////////
-	g_playerProjectileCounter += delta;
 	//Check to see if we should create a projectile.
 	if (32 in g_keysDown)		//Fire projectile on space.
 	{
-		if (g_playerProjectileCounter >= g_playerProjectileTimeout)
+		if (g_playerProjectiles.length < g_playerMaxProjectiles)
 		{
-			g_playerProjectileCounter = 0;
 			g_playerProjectiles.push(g_projectile.create(g_player.x,
 														 g_player.y - 20,
 														 "#FFFFFF"));
@@ -295,7 +312,7 @@ var Update = function(delta, canvas)
 	/////////////////////////////////
 	g_monsterMoveUpdateCounter += delta;
 
-	if (g_monsterMoveUpdateCounter >= g_monsterSpeed) //Time to update monsters.
+	if (g_monsterMoveUpdateCounter >= (g_monsterSpeed - ((g_monsterStartCount - g_monsters.length) * g_monsterAccelerateMultiplier))) //Time to update monsters.
 	{
 		g_monsterMoveUpdateCounter = 0;
 		
@@ -320,6 +337,72 @@ var Update = function(delta, canvas)
 			g_monsterMoveCounter--;
 
 	}
+
+
+	/////////////////////////////////
+	//MONSTER PROJECTILES
+	/////////////////////////////////
+	for (var i = 0; i < g_monsterFireCountdown.length; i++)
+	{
+		g_monsterFireCountdown[i] -= delta;
+
+		if (g_monsterFireCountdown[i] < 0)
+		{
+			//Reset for next shot.
+			g_monsterFireCountdown[i] = BoundedRandom(g_monsterFireMinTime, g_monsterFireMaxTime);
+
+			//Find the appropriate monster to shoot from. Is this very slow? Yes. Do we care? Not really.
+			var lowestMonster = -1; //-1 means no monster found.
+			for (var m = 0; m < g_monsters.length; m++)
+			{
+				if (g_monsters[m].column == i)
+				{
+					if (lowestMonster == -1)
+						lowestMonster = m;
+					else
+						if (g_monsters[m].row > g_monsters[lowestMonster].row)
+							lowestMonster = m;
+				}
+			}
+
+			//Fire from this monster.
+			if (lowestMonster > -1)
+			{
+				var projColour = "#FFFFFF";
+				switch(g_monsters[lowestMonster].type)
+				{
+					case 1:
+						projColour = "#C80000";
+						break;
+
+					case 2:
+						projColour = "#3366CC";
+						break;
+
+					case 3:
+						projColour = "#9933FF";
+						break;
+				}
+
+				g_monsterProjectiles.push(g_projectile.create(ColumnToX(g_monsters[lowestMonster].column) + (g_monsterWidth / 2),
+														  	RowToY(g_monsters[lowestMonster].row) + 20,
+														  	projColour));
+			}
+		}
+	}
+
+	//Update projectile movement.
+	for (var i = 0; i < g_monsterProjectiles.length; i++)
+	{
+		g_monsterProjectiles[i].y += g_projectile.moveSpeed * delta;
+
+		//If we're out of bounds, delete us.
+		if (g_monsterProjectiles[i].y > g_gameOptions.height + 10)
+		{
+			g_monsterProjectiles.splice(i, 1);
+			continue;
+		}
+	}
 }
 
 
@@ -334,6 +417,11 @@ function RowToY(row)
 {
 	return (row * g_monsterHeight) + (row * 30) + 60 +
 		   (g_monsterHeightOffset * g_monsterHeight);
+}
+
+function BoundedRandom(min, max)
+{
+	return (Math.random() * (max - min)) + min;
 }
 
 
