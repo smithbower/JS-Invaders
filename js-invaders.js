@@ -41,6 +41,7 @@ var p_monster = {
 		}
 };
 
+
 /////////////////////////////////
 //PLAYER
 /////////////////////////////////
@@ -50,6 +51,35 @@ var g_player = {
 	y: 50,
 	width: 60,
 	height: 40
+};
+
+var g_playerProjectiles = new Array();
+var g_playerProjectileTimeout = 1;
+var g_playerProjectileCounter = 200;
+
+
+/////////////////////////////////
+//PROJECTILE
+/////////////////////////////////
+var g_projectile = {
+	moveSpeed: 600,
+	x: 0,
+	y: 0,
+
+	colour: "#FFFFFF",
+
+	create: function(x, y, colour)
+		{
+			var newProjectile = new Object();
+			if (colour == null)
+				newProjectile.colour = g_projectile.colour;
+			else
+				newProjectile.colour = colour;
+			newProjectile.x = x;
+			newProjectile.y = y;
+
+			return newProjectile;
+		}
 };
 
 
@@ -171,6 +201,18 @@ var Render = function(canvas)
 				break;
 		}
 	}
+
+	//Draw all the player projectiles.
+	for (var i = 0; i < g_playerProjectiles.length; i++)
+	{
+
+		canvas.beginPath();
+		canvas.strokeStyle = g_playerProjectiles[i].colour;
+		canvas.lineWidth = 3;
+		canvas.moveTo(g_playerProjectiles[i].x, g_playerProjectiles[i].y - 8);
+		canvas.lineTo(g_playerProjectiles[i].x, g_playerProjectiles[i].y + 8);
+		canvas.stroke();
+	}
 }
 
 
@@ -198,6 +240,54 @@ var Update = function(delta, canvas)
 	else
 		if (g_player.x > canvas.width - g_player.width / 2)
 			g_player.x = canvas.width - g_player.width / 2;
+
+	
+	/////////////////////////////////
+	//PLAYER PROJECTILES
+	/////////////////////////////////
+	g_playerProjectileCounter += delta;
+	//Check to see if we should create a projectile.
+	if (32 in g_keysDown)		//Fire projectile on space.
+	{
+		if (g_playerProjectileCounter >= g_playerProjectileTimeout)
+		{
+			g_playerProjectileCounter = 0;
+			g_playerProjectiles.push(g_projectile.create(g_player.x,
+														 g_player.y - 20,
+														 "#FFFFFF"));
+		}
+	}
+
+	//Update projectile movement.
+	for (var i = 0; i < g_playerProjectiles.length; i++)
+	{
+		g_playerProjectiles[i].y -= g_projectile.moveSpeed * delta;
+
+		//If we're out of bounds, delete us.
+		if (g_playerProjectiles[i].y < - 10)
+		{
+			g_playerProjectiles.splice(i, 1);
+			continue;
+		}
+
+
+		//Check to see if we've killed a monster.
+		for (var m = 0; m < g_monsters.length; m++)
+		{
+			//Super crude collision detection at the moment.
+			if (g_playerProjectiles[i].x >= ColumnToX(g_monsters[m].column) &&
+				g_playerProjectiles[i].x <= ColumnToX(g_monsters[m].column) + g_monsterWidth &&
+				g_playerProjectiles[i].y <= RowToY(g_monsters[m].row) + g_monsterHeight &&
+				g_playerProjectiles[i].y >= RowToY(g_monsters[m].row))
+			{
+				//Kill the monster and the projectile.
+				g_playerProjectiles.splice(i, 1);
+				g_monsters.splice(m, 1);
+
+				break;
+			}
+		}
+	}
 
 
 	/////////////////////////////////
