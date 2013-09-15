@@ -90,6 +90,39 @@ var g_projectile = {
 
 
 /////////////////////////////////
+//BLOCKS
+/////////////////////////////////
+var g_blocks = new Array();
+var g_block = {
+	health: 4,
+	x: 0,
+	y: 0,
+	width: 20,
+	height: 20,
+
+	create: function(x, y)
+		{
+			var newBlock = new Object();
+			newBlock.health = g_block.health;
+			newBlock.x = x;
+			newBlock.y = y;
+			newBlock.pixels = new Array(g_block.width);
+
+			for (var x = 0; x < g_block.width; x++)
+			{
+				newBlock.pixels[x] = new Array(g_block.height);
+
+				for (var y = 0; y < g_block.height; y++)
+					newBlock.pixels[x][y] = 1;
+			}
+
+			return newBlock;
+		}
+}
+
+
+
+/////////////////////////////////
 //GAME
 /////////////////////////////////
 var g_gameOptions = {
@@ -149,6 +182,14 @@ var Init = function()
 	g_monsterMoveCounter = 22;
 
 
+	//Create the blocks.
+	var blockOffset = 160;
+	CreateBlock(100 - 40, blockOffset);
+	CreateBlock(300 - 40, blockOffset);
+	CreateBlock(500 - 40, blockOffset);
+	CreateBlock(700 - 40, blockOffset);
+
+
 	//Start the game!
 	setInterval(Main, 1);
 }
@@ -188,6 +229,18 @@ var Render = function(canvas)
 	//Draw the player.
 	canvas.fillStyle = "#00FF00";
 	canvas.fillRect(g_player.x - g_player.width / 2, g_player.y - g_player.height / 2, g_player.width, g_player.height);
+
+
+	//Draw the blocks.
+	canvas.fillStyle = "#00FF00";
+	for (var i = 0; i < g_blocks.length; i++)
+	{
+		for (var x = 0; x < g_block.width; x++)
+			for (var y = 0; y < g_block.height; y++)
+				if (g_blocks[i].pixels[x][y] == 1)
+					canvas.fillRect(g_blocks[i].x + x, g_blocks[i].y + y, 1, 1);
+	}
+
 
 	//Draw all monsters.
 	for (var i = 0; i < g_monsters.length; i++)
@@ -278,6 +331,7 @@ var Update = function(delta, canvas)
 	//Update projectile movement.
 	for (var i = 0; i < g_playerProjectiles.length; i++)
 	{
+		var projDie = false;
 		g_playerProjectiles[i].y -= g_projectile.moveSpeed * delta;
 
 		//If we're out of bounds, delete us.
@@ -288,7 +342,27 @@ var Update = function(delta, canvas)
 		}
 
 
+		//Check to see if we've hit a block.
+		for (var b = 0; b < g_blocks.length; b++)
+		{
+			if (g_playerProjectiles[i].x >= g_blocks[b].x &&
+				g_playerProjectiles[i].x <= g_blocks[b].x + g_block.width &&
+				g_playerProjectiles[i].y <= g_blocks[b].y + g_block.height &&
+				g_playerProjectiles[i].y >= g_blocks[b].y)
+			{
+				//Injure the block and the projectile.
+				g_playerProjectiles.splice(i, 1);
+				HurtBlock(b);
+				
+				projDie = true;
+				break;
+			}
+		}
+
+
 		//Check to see if we've killed a monster.
+		if (projDie)
+			continue;
 		for (var m = 0; m < g_monsters.length; m++)
 		{
 			//Super crude collision detection at the moment.
@@ -394,6 +468,7 @@ var Update = function(delta, canvas)
 	//Update projectile movement.
 	for (var i = 0; i < g_monsterProjectiles.length; i++)
 	{
+		var projDie = false;
 		g_monsterProjectiles[i].y += g_projectile.moveSpeed * delta;
 
 		//If we're out of bounds, delete us.
@@ -402,6 +477,26 @@ var Update = function(delta, canvas)
 			g_monsterProjectiles.splice(i, 1);
 			continue;
 		}
+
+		//Check to see if we've hit a block.
+		for (var b = 0; b < g_blocks.length; b++)
+		{
+			if (g_monsterProjectiles[i].x >= g_blocks[b].x &&
+				g_monsterProjectiles[i].x <= g_blocks[b].x + g_block.width &&
+				g_monsterProjectiles[i].y <= g_blocks[b].y + g_block.height &&
+				g_monsterProjectiles[i].y >= g_blocks[b].y)
+			{
+				//Injure the block and the projectile.
+				g_monsterProjectiles.splice(i, 1);
+				HurtBlock(b);
+				
+				projDie = true;
+				break;
+			}
+		}
+
+		if (projDie)
+			continue;
 	}
 }
 
@@ -424,6 +519,44 @@ function BoundedRandom(min, max)
 	return (Math.random() * (max - min)) + min;
 }
 
+function HurtBlock(block)
+{
+	g_blocks[block].health--;
+	//Update the graphic, and remove if dead.
+	if (g_blocks[block].health == 0)
+		g_blocks.splice(block, 1);
+	else
+		for (var j = 0; j < (g_block.width * g_block.height / g_block.health); j++)
+		{
+			remove: while(true)
+			{
+				var dx = BoundedRandom(0, g_block.width) | 0; //Cast to int.
+				var dy = BoundedRandom(0, g_block.height) | 0;
+
+				if (g_blocks[block].pixels[dx][dy] == 0)
+					continue remove;
+
+				g_blocks[block].pixels[dx][dy] = 0;
+				break;
+			}
+
+		}
+}
+
+
+function CreateBlock(x, y)
+{
+	g_blocks.push(g_block.create(x, g_gameOptions.height - y));
+	g_blocks.push(g_block.create(x, g_gameOptions.height - y - g_block.height));
+	g_blocks.push(g_block.create(x, g_gameOptions.height - y - g_block.height * 2));
+	g_blocks.push(g_block.create(x + g_block.width, g_gameOptions.height - y - g_block.height));
+	g_blocks.push(g_block.create(x + g_block.width, g_gameOptions.height - y - g_block.height * 2));
+	g_blocks.push(g_block.create(x + g_block.width * 2, g_gameOptions.height - y - g_block.height));
+	g_blocks.push(g_block.create(x + g_block.width * 2, g_gameOptions.height - y - g_block.height * 2));
+	g_blocks.push(g_block.create(x + g_block.width * 3, g_gameOptions.height - y));
+	g_blocks.push(g_block.create(x + g_block.width * 3, g_gameOptions.height - y - g_block.height));
+	g_blocks.push(g_block.create(x + g_block.width * 3, g_gameOptions.height - y - g_block.height * 2));
+}
 
 
 /**
