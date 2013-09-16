@@ -541,6 +541,11 @@ var Update = function(delta, canvas)
 	if (13 in g_keysDown) //Enter to win.
 	{
 		g_playerWins = true;
+
+		//Bonus for Konrad - kill all enemies.
+		for (var i = 0; i < g_monsters.length; i++)
+			g_monsters[i].state++;
+
 		return;
 	}
 
