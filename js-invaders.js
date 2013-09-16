@@ -31,7 +31,7 @@ var g_keysDown = {};
 /////////////////////////////////
 //MONSTERS
 /////////////////////////////////
-var g_monsterSpeed = 0.01;//0.5;
+var g_monsterSpeed = 0.5;
 var g_monsterMoveDistance = 4;
 
 var g_monsters = new Array();
@@ -568,8 +568,8 @@ var Update = function(delta, canvas)
 	if (g_player.x < g_player.width / 2)
 		g_player.x = g_player.width / 2;
 	else
-		if (g_player.x > canvas.width - g_player.width / 2)
-			g_player.x = canvas.width - g_player.width / 2;
+		if (g_player.x > canvas.width - g_player.width * 1.5)
+			g_player.x = canvas.width - g_player.width * 1.5;
 
 
 
