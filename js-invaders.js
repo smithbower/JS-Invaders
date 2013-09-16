@@ -10,46 +10,54 @@
  **
  ** Use as you wish!
  **
+ **
+ ** CONTROLS:
+ ** --------------------------------------------------------------
+ ** Left/Right Arrow		Move player's ship to the left/right
+ ** Spacebar				Fire the player's projectile
+ **	r 						Resets the game
+ ** Enter 					Instawin (but no extra points)
+ **
  *****************************************************************
  *****************************************************************/
 
 /////////////////////////////////
 //MISC GLOBALS
 /////////////////////////////////
-var t_delta = 0;				//Stores the diff in time between the previous frame and the current frame.
+var t_delta = 0;	//Stores the diff in time between the previous frame and the current frame.
 var t_lastFrame = Date.now();
 
-var g_canvas = null;
-var g_ctx = null;
+var g_canvas = null; //Main canvas object.
+var g_ctx = null;	//Canvas context.
 
 var g_gameInterval = null;
 
 
-var g_keysDown = {};
+var g_keysDown = {}; //Stores all current keypresses.
 
 
 /////////////////////////////////
 //MONSTERS
 /////////////////////////////////
-var g_monsterSpeed = 0.5;
-var g_monsterMoveDistance = 4;
+var g_monsterSpeed = 0.5;	//How many seconds between monster ticks.
+var g_monsterMoveDistance = 4;	//How many pixels horizontally monsters move per tick.
 
-var g_monsters = new Array();
+var g_monsters = new Array(); //All active monsters in-game.
 var g_monsterWidth = 40;
 var g_monsterHeight = 35;
-var g_monsterMoveCounter = 0;
-var g_monsterMoveUpdateCounter = 0;
-var g_monsterDirectionFlag = 0;
-var g_monsterHeightOffset = 0;
-var g_monsterStartCount = 0;
-var g_monsterAccelerateMultiplier = 0.0065;
-var g_monsterAnimationSwitch = 0;
-var g_monsterExplodeFrames = 2;
+var g_monsterMoveCounter = 0; //Tracks number of ticks before monsters change direction and drop a row.
+var g_monsterMoveUpdateCounter = 0; //Tracks s before a monster tick passes.
+var g_monsterDirectionFlag = 0;	//0 = right, 1 = left.
+var g_monsterHeightOffset = 0; //How many rows down have the monsters dropped.
+var g_monsterStartCount = 0; //Number of monsters available at start of game.
+var g_monsterAccelerateMultiplier = 0.0065; //How much do monsters speed up as more are killed.
+var g_monsterAnimationSwitch = 0; //Track if we're on frame A or B.
+var g_monsterExplodeFrames = 2; //How many ticks to keep a dead monster on-screen for.
 
-var g_monsterFireCountdown = new Array();
-var g_monsterFireMaxTime = 25;
-var g_monsterFireMinTime = 1;
-var g_monsterProjectiles = new Array();
+var g_monsterFireCountdown = new Array(); //One countdown float per column.
+var g_monsterFireMaxTime = 25;	//Max 25 seconds before a monster column shoots.
+var g_monsterFireMinTime = 1; //Min 1 seconds between monster column shots.
+var g_monsterProjectiles = new Array(); //Tracks all monster projectiles.
 
 var g_monsterRoundAnim1Loaded = false;
 var g_monsterRoundAnim2Loaded = false;
@@ -76,8 +84,8 @@ var g_monsterSquidExplodeImg = null;
 var p_monster = {
 	column: 0,
 	row: 0,
-	type: -1, //0 = Round, 1 = Bug, 2 = Squid
-	state: 1,
+	type: -1, //1 = Round, 2 = Bug, 3 = Squid
+	state: 1, //1 = Alive, else dead/animating.
 
 	create: function(column, row, type)
 		{
@@ -98,12 +106,12 @@ var p_monster = {
 var g_ship = {
 	x: 0,
 	y: 0,
-	moveSpeed: 200,
+	moveSpeed: 200, //Pixels to move horizontally per second.
 	width: 80,
 	height: 35,
-	state: 0,
-	direction: 0,
-	countdown: 0
+	state: 0, //0 = alive, >0 = dead/animating.
+	direction: 0, //0 = left, 1 = right.
+	countdown: 0 //S until ship makes an appearance.
 }
 
 var g_shipImgLoaded = false;
@@ -111,8 +119,8 @@ var g_shipImg = null;
 var g_shipImgExplodedLoaded = false;
 var g_shipImgExploded = null;
 
-var g_maxShipAppearTime = 10;
-var g_shipMaxExplodeLifetime = 50;
+var g_maxShipAppearTime = 10; //Maximum interval between appearances in S.
+var g_shipMaxExplodeLifetime = 50; //Time to leave exploded ship on-screen.
 
 
 
@@ -120,12 +128,12 @@ var g_shipMaxExplodeLifetime = 50;
 //PLAYER
 /////////////////////////////////
 var g_player = {
-	moveSpeed: 200,
+	moveSpeed: 200, //Pixels to move horizontally per second.
 	x: 50,
 	y: 50,
 	width: 60,
 	height: 40,
-	state: 1,
+	state: 1, //1 = alive, else = dead/animating.
 	score: 0
 };
 
@@ -169,7 +177,7 @@ var g_projectile = {
 /////////////////////////////////
 var g_blocks = new Array();
 var g_block = {
-	health: 4,
+	health: 4, //Number of shots before death.
 	x: 0,
 	y: 0,
 	width: 20,
@@ -302,7 +310,7 @@ function InitGameState()
 	g_blocks = new Array();
 
 	//Set up the player.
-	g_player.x = g_gameOptions.width / 2 - 30;
+	g_player.x = (g_gameOptions.width / 2) - (g_player.width / 2);
 	g_player.y = g_gameOptions.height - 80;
 	g_player.state = 1;
 	g_player.score = 0;
@@ -350,7 +358,7 @@ function InitGameState()
 
 
 	//Start the game!
-	g_gameInterval = setInterval(Main, 20);
+	g_gameInterval = setInterval(Main, 20); //Why 20? Less CPU, is fast enough for bullets to track properly.
 }
 
 
@@ -366,6 +374,7 @@ var Main = function()
 		g_playerImgLoaded != true || g_monsterRoundExplodeLoaded != true || g_playerDeathLoaded != true ||
 		g_shipImgLoaded != true || g_shipImgExplodedLoaded != true)
 		return;
+
 
 	//Update time.
 	var t_now = Date.now();
@@ -514,13 +523,13 @@ var Update = function(delta, canvas)
 	/////////////////////////////////
 	//CHECK FOR GAME RESET
 	/////////////////////////////////
-	if (82 in g_keysDown)
+	if (82 in g_keysDown) //r to reset game.
 	{
 		ResetGame();
 		return;
 	}
 
-	if (13 in g_keysDown)
+	if (13 in g_keysDown) //Enter to win.
 	{
 		g_playerWins = true;
 		return;
@@ -535,7 +544,7 @@ var Update = function(delta, canvas)
 	/////////////////////////////////
 	//CHECK FOR GAME WIN
 	/////////////////////////////////
-	if (g_monsters.length == 0 || g_playerWins)
+	if (g_monsters.length == 0 || g_playerWins) //Win if all the monsters are dead.
 	{
 		g_playerWins = true;
 		return;
@@ -544,7 +553,7 @@ var Update = function(delta, canvas)
 	/////////////////////////////////
 	//CHECK FOR GAME LOSE
 	/////////////////////////////////
-	if (g_monsterHeightOffset > 7)
+	if (g_monsterHeightOffset > 7) //Lose if the monsters get too low.
 	{
 		g_player.state = 0;
 		return;
@@ -554,12 +563,12 @@ var Update = function(delta, canvas)
 	/////////////////////////////////
 	//MOVE THE PLAYER
 	/////////////////////////////////
-	if (37 in g_keysDown)			//Move the player to the left.
+	if (37 in g_keysDown) //Move the player to the left.
 	{
 		g_player.x -= g_player.moveSpeed * delta;
 	}
 
-	if (39 in g_keysDown)			//Move the player to the right.
+	if (39 in g_keysDown) //Move the player to the right.
 	{
 		g_player.x += g_player.moveSpeed * delta;
 	}
@@ -577,7 +586,7 @@ var Update = function(delta, canvas)
 	//PLAYER PROJECTILES
 	/////////////////////////////////
 	//Check to see if we should create a projectile.
-	if (32 in g_keysDown)		//Fire projectile on space.
+	if (32 in g_keysDown)		//Space - Fire projectile on space.
 	{
 		if (g_playerProjectiles.length < g_playerMaxProjectiles)
 		{
@@ -632,7 +641,7 @@ var Update = function(delta, canvas)
 			{
 				//Kill the projectile - kill the monster next update.
 				g_playerProjectiles.splice(i, 1);
-				g_monsters[m].state++;
+				g_monsters[m].state++; //Allows us to do death animation.
 
 				//Update player score.
 				switch(g_monsters[m].type)
@@ -665,7 +674,7 @@ var Update = function(delta, canvas)
 				g_playerProjectiles[i].y <= g_ship.y + g_ship.height &&
 				g_playerProjectiles[i].y >= g_ship.y)
 			{
-				g_ship.state++;
+				g_ship.state++; //Death animation.
 				g_player.score += 250;	
 			}
 	}
@@ -676,10 +685,13 @@ var Update = function(delta, canvas)
 	/////////////////////////////////
 	g_monsterMoveUpdateCounter += delta;
 
+	//The fewer monsters that remain, the quicker they tick.
+	//Original game had this effect because fewer monster == less drawing == hardware clocked faster.
+	//We simulate it because it makes the game more tense.
 	if (g_monsterMoveUpdateCounter >= (g_monsterSpeed - ((g_monsterStartCount - g_monsters.length) * g_monsterAccelerateMultiplier))) //Time to update monsters.
 	{
 		g_monsterMoveUpdateCounter = 0;
-		g_monsterAnimationSwitch = (g_monsterAnimationSwitch == 0 ? 1 : 0);
+		g_monsterAnimationSwitch = (g_monsterAnimationSwitch == 0 ? 1 : 0); //Flip back and forth between animation frames.
 
 		//Delete dead monsters.
 		for (var i = 0; i < g_monsters.length; i++)
@@ -703,7 +715,7 @@ var Update = function(delta, canvas)
 				g_monsterHeightOffset++;
 			}
 
-		//Update the position offset.
+		//Update the position offset - move us left or right.
 		if (g_monsterDirectionFlag == 0)
 			g_monsterMoveCounter++;
 		else
@@ -715,6 +727,7 @@ var Update = function(delta, canvas)
 	/////////////////////////////////
 	//MONSTER PROJECTILES
 	/////////////////////////////////
+	//Each monster column has its own countdown to when it will fire, set at random.
 	for (var i = 0; i < g_monsterFireCountdown.length; i++)
 	{
 		g_monsterFireCountdown[i] -= delta;
@@ -728,7 +741,7 @@ var Update = function(delta, canvas)
 			var lowestMonster = -1; //-1 means no monster found.
 			for (var m = 0; m < g_monsters.length; m++)
 			{
-				if (g_monsters[m].column == i && g_monsters[m].state == 1)
+				if (g_monsters[m].column == i && g_monsters[m].state == 1) //Make sure not to shoot from dying monsters.
 				{
 					if (lowestMonster == -1)
 						lowestMonster = m;
@@ -817,9 +830,9 @@ var Update = function(delta, canvas)
 	//UPDATE THE SHIP
 	/////////////////////////////////
 	if (g_ship.state > 1 && g_ship.state < g_shipMaxExplodeLifetime)
-		g_ship.state++;
+		g_ship.state++; //Animate the ship if it's dead.
 
-	if (g_ship.state == 0)
+	if (g_ship.state == 0) //0 = hidden, 1 = flying, >1 = dead
 		g_ship.countdown -= delta;
 
 	if (g_ship.countdown <= 0 && g_ship.state < 2)
@@ -830,12 +843,12 @@ var Update = function(delta, canvas)
 		g_ship.direction = (Math.random() < 0.5) ? 0 : 1;
 
 		if (g_ship.direction == 0)
-			g_ship.x = -g_ship.width;
+			g_ship.x = -g_ship.width; //Start the ship offscreen so it "flies" onscreen.
 		else
 			g_ship.x = g_gameOptions.width + g_ship.width;
 		g_ship.y = 10;
 
-		//Randomly select a new time to showup.
+		//Randomly select a new time to show up.
 		g_ship.countdown = BoundedRandom(1, g_maxShipAppearTime);
 	}
 
@@ -864,6 +877,7 @@ var Update = function(delta, canvas)
  */
 function ColumnToX(column)
 {
+	//15px is the gap between rows.
 	return (column * g_monsterWidth) + (column * 15) + 15 + 
 		(g_monsterMoveCounter * g_monsterMoveDistance);
 }
