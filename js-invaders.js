@@ -7,6 +7,8 @@ var t_lastFrame = Date.now();
 var g_canvas = null;
 var g_ctx = null;
 
+var g_gameInterval = null;
+
 
 var g_keysDown = {};
 
@@ -27,6 +29,7 @@ var g_monsterHeightOffset = 0;
 var g_monsterStartCount = 0;
 var g_monsterAccelerateMultiplier = 0.0065;
 var g_monsterAnimationSwitch = 0;
+var g_monsterExplodeFrames = 2;
 
 var g_monsterFireCountdown = new Array();
 var g_monsterFireMaxTime = 25;
@@ -37,21 +40,29 @@ var g_monsterRoundAnim1Loaded = false;
 var g_monsterRoundAnim2Loaded = false;
 var g_monsterRoundAnim1Img = null;
 var g_monsterRoundAnim2Img = null;
+var g_monsterRoundExplodeLoaded = false;
+var g_monsterRoundExplodeImg = null;
 
 var g_monsterBugAnim1Loaded = false;
 var g_monsterBugAnim2Loaded = false;
 var g_monsterBugAnim1Img = null;
 var g_monsterBugAnim2Img = null;
+var g_monsterBugExplodeLoaded = false;
+var g_monsterBugExplodeImg = null;
 
 var g_monsterSquidAnim1Loaded = false;
 var g_monsterSquidAnim2Loaded = false;
 var g_monsterSquidAnim1Img = null;
 var g_monsterSquidAnim2Img = null;
+var g_monsterSquidExplodeLoaded = false;
+var g_monsterSquidExplodeImg = null;
+
 
 var p_monster = {
 	column: 0,
 	row: 0,
 	type: -1, //0 = Round, 1 = Bug, 2 = Squid
+	state: 1,
 
 	create: function(column, row, type)
 		{
@@ -59,6 +70,7 @@ var p_monster = {
 			newMonster.column = column;
 			newMonster.row = row;
 			newMonster.type = type;
+			newMonster.state = p_monster.state;
 
 			return newMonster;
 		}
@@ -78,6 +90,9 @@ var g_player = {
 
 var g_playerProjectiles = new Array();
 var g_playerMaxProjectiles = 1;
+
+var g_playerImgLoaded = false;
+var g_playerImg = null;
 
 
 /////////////////////////////////
@@ -186,6 +201,22 @@ var Init = function()
 	g_monsterSquidAnim2Img.onload = function(){g_monsterSquidAnim2Loaded = true;}
 	g_monsterSquidAnim2Img.src = "squid_2.png";
 
+	g_monsterRoundExplodeImg = new Image();
+	g_monsterRoundExplodeImg.onload = function(){g_monsterRoundExplodeLoaded = true;}
+	g_monsterRoundExplodeImg.src = "round_exp.png";
+
+	g_monsterBugExplodeImg = new Image();
+	g_monsterBugExplodeImg.onload = function(){g_monsterBugExplodeLoaded = true;}
+	g_monsterBugExplodeImg.src = "bug_exp.png";
+
+	g_monsterSquidExplodeImg = new Image();
+	g_monsterSquidExplodeImg.onload = function(){g_monsterSquidExplodeLoaded = true;}
+	g_monsterSquidExplodeImg.src = "squid_exp.png";
+
+	g_playerImg = new Image();
+	g_playerImg.onload = function(){g_playerImgLoaded = true;}
+	g_playerImg.src = "player.png";
+
 
 	//Canvas related stuff.
 	g_canvas = document.createElement('canvas');
@@ -196,6 +227,19 @@ var Init = function()
 
 	document.body.appendChild(g_canvas);
 
+	InitGameState();
+}
+
+function InitGameState()
+{
+	clearInterval(g_gameInterval);
+
+	//Make sure to clear any old state.
+	g_monsters = new Array();
+	g_playerProjectiles = new Array();
+	g_monsterProjectiles = new Array();
+	g_monsterFireCountdown = new Array();
+	g_blocks = new Array();
 
 	//Set up the player.
 	g_player.x = g_gameOptions.width / 2 - 30;
@@ -233,7 +277,7 @@ var Init = function()
 
 
 	//Start the game!
-	setInterval(Main, 1);
+	g_gameInterval = setInterval(Main, 20);
 }
 
 
@@ -243,7 +287,10 @@ var Init = function()
 var Main = function()
 {
 	//Make sure we've loaded all images before starting.
-	if (g_monsterRoundAnim1Loaded != true || g_monsterRoundAnim2Loaded != true)
+	if (g_monsterRoundAnim1Loaded != true || g_monsterRoundAnim2Loaded != true ||
+		g_monsterBugAnim1Loaded != true || g_monsterBugAnim2Loaded != true ||
+		g_monsterSquidAnim1Loaded != true || g_monsterSquidAnim2Loaded != true ||
+		g_playerImgLoaded != true || g_monsterRoundExplodeLoaded != true)
 		return;
 
 	//Update time.
@@ -274,7 +321,8 @@ var Render = function(canvas)
 
 	//Draw the player.
 	canvas.fillStyle = "#00FF00";
-	canvas.fillRect(g_player.x - g_player.width / 2, g_player.y - g_player.height / 2, g_player.width, g_player.height);
+	//canvas.fillRect(g_player.x - g_player.width / 2, g_player.y - g_player.height / 2, g_player.width, g_player.height);
+	canvas.drawImage(g_playerImg, g_player.x, g_player.y);
 
 	//Draw the blocks.
 	for (var i = 0; i < g_blocks.length; i++)
@@ -296,26 +344,35 @@ var Render = function(canvas)
 		{
 			case 1: //Round monster, first two rows.
 				canvas.fillStyle = "#C80000";
-				if (g_monsterAnimationSwitch == 0)
-					canvas.drawImage(g_monsterRoundAnim1Img, ColumnToX(g_monsters[i].column), RowToY(g_monsters[i].row));
+				if (g_monsters[i].state == 1)
+					if (g_monsterAnimationSwitch == 0)
+						canvas.drawImage(g_monsterRoundAnim1Img, ColumnToX(g_monsters[i].column), RowToY(g_monsters[i].row));
+					else
+						canvas.drawImage(g_monsterRoundAnim2Img, ColumnToX(g_monsters[i].column), RowToY(g_monsters[i].row));
 				else
-					canvas.drawImage(g_monsterRoundAnim2Img, ColumnToX(g_monsters[i].column), RowToY(g_monsters[i].row));
+					canvas.drawImage(g_monsterRoundExplodeImg, ColumnToX(g_monsters[i].column), RowToY(g_monsters[i].row));
 				break;
 
 			case 2: //Bug monster, third and fourth row.
 				canvas.fillStyle = "#3366CC";
-				if (g_monsterAnimationSwitch == 0)
-					canvas.drawImage(g_monsterBugAnim1Img, ColumnToX(g_monsters[i].column), RowToY(g_monsters[i].row));
+				if (g_monsters[i].state == 1)
+					if (g_monsterAnimationSwitch == 0)
+						canvas.drawImage(g_monsterBugAnim1Img, ColumnToX(g_monsters[i].column), RowToY(g_monsters[i].row));
+					else
+						canvas.drawImage(g_monsterBugAnim2Img, ColumnToX(g_monsters[i].column), RowToY(g_monsters[i].row));
 				else
-					canvas.drawImage(g_monsterBugAnim2Img, ColumnToX(g_monsters[i].column), RowToY(g_monsters[i].row));
+					canvas.drawImage(g_monsterBugExplodeImg, ColumnToX(g_monsters[i].column), RowToY(g_monsters[i].row));
 				break;
 
 			case 3: //Squid monster, fifth and sixth row.
 				canvas.fillStyle = "#9933FF";
-				if (g_monsterAnimationSwitch == 0)
-					canvas.drawImage(g_monsterSquidAnim1Img, ColumnToX(g_monsters[i].column), RowToY(g_monsters[i].row));
+				if (g_monsters[i].state == 1)
+					if (g_monsterAnimationSwitch == 0)
+						canvas.drawImage(g_monsterSquidAnim1Img, ColumnToX(g_monsters[i].column), RowToY(g_monsters[i].row));
+					else
+						canvas.drawImage(g_monsterSquidAnim2Img, ColumnToX(g_monsters[i].column), RowToY(g_monsters[i].row));
 				else
-					canvas.drawImage(g_monsterSquidAnim2Img, ColumnToX(g_monsters[i].column), RowToY(g_monsters[i].row));
+					canvas.drawImage(g_monsterSquidExplodeImg, ColumnToX(g_monsters[i].column), RowToY(g_monsters[i].row));
 				break;
 		}
 	}
@@ -348,7 +405,17 @@ var Render = function(canvas)
  * Perform all logic updates.
  */
 var Update = function(delta, canvas)
-{
+{	
+	/////////////////////////////////
+	//CHECK FOR GAME RESET
+	/////////////////////////////////
+	if (82 in g_keysDown)
+	{
+		ResetGame();
+		return;
+	}
+
+
 	/////////////////////////////////
 	//MOVE THE PLAYER
 	/////////////////////////////////
@@ -378,8 +445,8 @@ var Update = function(delta, canvas)
 	{
 		if (g_playerProjectiles.length < g_playerMaxProjectiles)
 		{
-			g_playerProjectiles.push(g_projectile.create(g_player.x,
-														 g_player.y - 20,
+			g_playerProjectiles.push(g_projectile.create(g_player.x + g_player.width / 2,
+														 g_player.y + 20,
 														 "#FFFFFF"));
 		}
 	}
@@ -427,9 +494,9 @@ var Update = function(delta, canvas)
 				g_playerProjectiles[i].y <= RowToY(g_monsters[m].row) + g_monsterHeight &&
 				g_playerProjectiles[i].y >= RowToY(g_monsters[m].row))
 			{
-				//Kill the monster and the projectile.
+				//Kill the projectile - kill the monster next update.
 				g_playerProjectiles.splice(i, 1);
-				g_monsters.splice(m, 1);
+				g_monsters[m].state++;
 
 				break;
 			}
@@ -446,6 +513,14 @@ var Update = function(delta, canvas)
 	{
 		g_monsterMoveUpdateCounter = 0;
 		g_monsterAnimationSwitch = (g_monsterAnimationSwitch == 0 ? 1 : 0);
+
+		//Delete dead monsters.
+		for (var i = 0; i < g_monsters.length; i++)
+			if (g_monsters[i].state > 1)
+				if (g_monsters[i].state < g_monsterExplodeFrames)
+					g_monsters[i].state++;
+				else
+					g_monsters.splice(i, 1);
 		
 
 		//Figure out which direction we're moving.
@@ -486,7 +561,7 @@ var Update = function(delta, canvas)
 			var lowestMonster = -1; //-1 means no monster found.
 			for (var m = 0; m < g_monsters.length; m++)
 			{
-				if (g_monsters[m].column == i)
+				if (g_monsters[m].column == i && g_monsters[m].state == 1)
 				{
 					if (lowestMonster == -1)
 						lowestMonster = m;
@@ -628,6 +703,13 @@ function RenderAnim(x, y, anim, canvas)
 			if (anim[iy][ix] == 1)
 				canvas.fillRect(x + ix, y + iy, 1, 1);
 		}
+}
+
+function ResetGame()
+{
+	clearInterval(g_gameInterval);
+
+	InitGameState();
 }
 
 
