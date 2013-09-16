@@ -85,7 +85,8 @@ var g_player = {
 	x: 50,
 	y: 50,
 	width: 60,
-	height: 40
+	height: 40,
+	state: 1
 };
 
 var g_playerProjectiles = new Array();
@@ -93,6 +94,8 @@ var g_playerMaxProjectiles = 1;
 
 var g_playerImgLoaded = false;
 var g_playerImg = null;
+var g_playerDeathLoaded = false;
+var g_playerDeathImg = null;
 
 
 /////////////////////////////////
@@ -217,6 +220,10 @@ var Init = function()
 	g_playerImg.onload = function(){g_playerImgLoaded = true;}
 	g_playerImg.src = "player.png";
 
+	g_playerDeathImg = new Image();
+	g_playerDeathImg.onload = function(){g_playerDeathLoaded = true;}
+	g_playerDeathImg.src = "death.png";
+
 
 	//Canvas related stuff.
 	g_canvas = document.createElement('canvas');
@@ -244,6 +251,7 @@ function InitGameState()
 	//Set up the player.
 	g_player.x = g_gameOptions.width / 2 - 30;
 	g_player.y = g_gameOptions.height - 80;
+	g_player.state = 1;
 
 
 	//Create the monster array.
@@ -290,7 +298,7 @@ var Main = function()
 	if (g_monsterRoundAnim1Loaded != true || g_monsterRoundAnim2Loaded != true ||
 		g_monsterBugAnim1Loaded != true || g_monsterBugAnim2Loaded != true ||
 		g_monsterSquidAnim1Loaded != true || g_monsterSquidAnim2Loaded != true ||
-		g_playerImgLoaded != true || g_monsterRoundExplodeLoaded != true)
+		g_playerImgLoaded != true || g_monsterRoundExplodeLoaded != true || g_playerDeathLoaded != true)
 		return;
 
 	//Update time.
@@ -305,7 +313,6 @@ var Main = function()
 
 	//Render everything to screen.
 	Render(g_ctx);
-
 }
 
 
@@ -321,8 +328,10 @@ var Render = function(canvas)
 
 	//Draw the player.
 	canvas.fillStyle = "#00FF00";
-	//canvas.fillRect(g_player.x - g_player.width / 2, g_player.y - g_player.height / 2, g_player.width, g_player.height);
-	canvas.drawImage(g_playerImg, g_player.x, g_player.y);
+	if (g_player.state == 1)
+		canvas.drawImage(g_playerImg, g_player.x, g_player.y);
+	else
+		canvas.drawImage(g_playerDeathImg, g_player.x, g_player.y);
 
 	//Draw the blocks.
 	for (var i = 0; i < g_blocks.length; i++)
@@ -416,6 +425,11 @@ var Update = function(delta, canvas)
 	}
 
 
+	//Only continue updating if the player is alive!
+	if (g_player.state == 0)
+		return;
+
+
 	/////////////////////////////////
 	//MOVE THE PLAYER
 	/////////////////////////////////
@@ -436,7 +450,8 @@ var Update = function(delta, canvas)
 		if (g_player.x > canvas.width - g_player.width / 2)
 			g_player.x = canvas.width - g_player.width / 2;
 
-	
+
+
 	/////////////////////////////////
 	//PLAYER PROJECTILES
 	/////////////////////////////////
@@ -597,7 +612,7 @@ var Update = function(delta, canvas)
 		}
 	}
 
-	//Update projectile movement.
+	//Update monster projectile movement.
 	for (var i = 0; i < g_monsterProjectiles.length; i++)
 	{
 		var projDie = false;
@@ -629,6 +644,20 @@ var Update = function(delta, canvas)
 
 		if (projDie)
 			continue;
+
+		//Check to see if we hit the player.
+		if (g_monsterProjectiles[i].x >= g_player.x &&
+			g_monsterProjectiles[i].x <= g_player.x + g_player.width &&
+			g_monsterProjectiles[i].y <= g_player.y + g_player.height &&
+			g_monsterProjectiles[i].y >= g_player.y)
+		{
+			//Kill the projectile.
+			g_monsterProjectiles.splice(i, 1);
+
+			//Update the player state.
+			g_player.state = 0;
+			break;
+		}
 	}
 }
 
