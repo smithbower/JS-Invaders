@@ -78,6 +78,30 @@ var p_monster = {
 
 
 /////////////////////////////////
+//SHIP
+/////////////////////////////////
+var g_ship = {
+	x: 0,
+	y: 0,
+	moveSpeed: 200,
+	width: 80,
+	height: 35,
+	state: 0,
+	direction: 0,
+	countdown: 0
+}
+
+var g_shipImgLoaded = false;
+var g_shipImg = null;
+var g_shipImgExplodedLoaded = false;
+var g_shipImgExploded = null;
+
+var g_maxShipAppearTime = 10;
+var g_shipMaxExplodeLifetime = 50;
+
+
+
+/////////////////////////////////
 //PLAYER
 /////////////////////////////////
 var g_player = {
@@ -86,7 +110,8 @@ var g_player = {
 	y: 50,
 	width: 60,
 	height: 40,
-	state: 1
+	state: 1,
+	score: 0
 };
 
 var g_playerProjectiles = new Array();
@@ -224,6 +249,14 @@ var Init = function()
 	g_playerDeathImg.onload = function(){g_playerDeathLoaded = true;}
 	g_playerDeathImg.src = "death.png";
 
+	g_shipImg = new Image();
+	g_shipImg.onload = function(){g_shipImgLoaded = true;}
+	g_shipImg.src = "ship.png";
+
+	g_shipImgExploded = new Image();
+	g_shipImgExploded.onload = function(){g_shipImgExplodedLoaded = true;}
+	g_shipImgExploded.src = "ship_exp.png";
+
 
 	//Canvas related stuff.
 	g_canvas = document.createElement('canvas');
@@ -252,6 +285,7 @@ function InitGameState()
 	g_player.x = g_gameOptions.width / 2 - 30;
 	g_player.y = g_gameOptions.height - 80;
 	g_player.state = 1;
+	g_player.score = 0;
 
 
 	//Create the monster array.
@@ -275,6 +309,11 @@ function InitGameState()
 	g_monsterStartCount = g_monsters.length;
 	g_monsterMoveCounter = 22;
 
+	g_monsterMoveUpdateCounter = 0;
+	g_monsterDirectionFlag = 0;
+	g_monsterHeightOffset = 0;
+	g_monsterStartCount = 0;
+
 
 	//Create the blocks.
 	var blockOffset = 160;
@@ -282,6 +321,12 @@ function InitGameState()
 	CreateBlock(300 - 40, blockOffset);
 	CreateBlock(500 - 40, blockOffset);
 	CreateBlock(700 - 40, blockOffset);
+
+
+	//Reset the ship.
+	g_ship.state = 0;
+	g_ship.direction = 0;
+	g_ship.countdown = BoundedRandom(1, g_maxShipAppearTime);
 
 
 	//Start the game!
@@ -298,7 +343,8 @@ var Main = function()
 	if (g_monsterRoundAnim1Loaded != true || g_monsterRoundAnim2Loaded != true ||
 		g_monsterBugAnim1Loaded != true || g_monsterBugAnim2Loaded != true ||
 		g_monsterSquidAnim1Loaded != true || g_monsterSquidAnim2Loaded != true ||
-		g_playerImgLoaded != true || g_monsterRoundExplodeLoaded != true || g_playerDeathLoaded != true)
+		g_playerImgLoaded != true || g_monsterRoundExplodeLoaded != true || g_playerDeathLoaded != true ||
+		g_shipImgLoaded != true || g_shipImgExplodedLoaded != true)
 		return;
 
 	//Update time.
@@ -325,6 +371,11 @@ var Render = function(canvas)
 	//Clear the canvas.
 	canvas.fillStyle = "#000000";
 	canvas.fillRect(0, 0, g_gameOptions.width, g_gameOptions.height);
+
+	//Draw the player's score.
+	canvas.font = "20px Arial";
+	canvas.fillStyle = "#FFFFFF";
+	canvas.fillText("Score: " + g_player.score, 40, g_gameOptions.height - 20);
 
 	//Draw the player.
 	canvas.fillStyle = "#00FF00";
@@ -385,6 +436,14 @@ var Render = function(canvas)
 				break;
 		}
 	}
+
+	//Render the ship.
+	if (g_ship.state == 1)
+		canvas.drawImage(g_shipImg, g_ship.x, g_ship.y);
+	else
+		if (g_ship.state > 1 && g_ship.state < g_shipMaxExplodeLifetime)
+			canvas.drawImage(g_shipImgExploded, g_ship.x, g_ship.y);
+
 
 	//Draw all the player projectiles.
 	for (var i = 0; i < g_playerProjectiles.length; i++)
@@ -513,9 +572,40 @@ var Update = function(delta, canvas)
 				g_playerProjectiles.splice(i, 1);
 				g_monsters[m].state++;
 
+				//Update player score.
+				switch(g_monsters[m].type)
+				{
+					case 1:
+						g_player.score += 10;
+						break;
+
+					case 2:
+						g_player.score += 20;
+						break;
+
+					case 3:
+						g_player.score += 40;
+						break;
+				}
+
+				projDie = true;
 				break;
 			}
 		}
+
+
+		//Check tp see if we've killed the ship.
+		if (projDie)
+			continue;
+		if (g_ship.state == 1)
+			if (g_playerProjectiles[i].x >= g_ship.x &&
+				g_playerProjectiles[i].x <= g_ship.x + g_ship.width &&
+				g_playerProjectiles[i].y <= g_ship.y + g_ship.height &&
+				g_playerProjectiles[i].y >= g_ship.y)
+			{
+				g_ship.state++;
+				g_player.score += 250;	
+			}
 	}
 
 
@@ -658,6 +748,51 @@ var Update = function(delta, canvas)
 			g_player.state = 0;
 			break;
 		}
+	}
+
+
+	/////////////////////////////////
+	//UPDATE THE SHIP
+	/////////////////////////////////
+	if (g_ship.state > 1 && g_ship.state < g_shipMaxExplodeLifetime)
+		g_ship.state++;
+
+	if (g_ship.state == 0)
+		g_ship.countdown -= delta;
+
+	if (g_ship.countdown <= 0 && g_ship.state < 2)
+	{
+		g_ship.state = 1;
+
+		//Randomly select a direction.
+		g_ship.direction = (Math.random() < 0.5) ? 0 : 1;
+
+		if (g_ship.direction == 0)
+			g_ship.x = -g_ship.width;
+		else
+			g_ship.x = g_gameOptions.width + g_ship.width;
+		g_ship.y = 10;
+
+		//Randomly select a new time to showup.
+		g_ship.countdown = BoundedRandom(1, g_maxShipAppearTime);
+	}
+
+
+	//Move the ship.
+	if (g_ship.state == 1)
+	{
+		if (g_ship.direction == 0)
+			g_ship.x += g_ship.moveSpeed * delta;
+		else
+			g_ship.x -= g_ship.moveSpeed * delta;
+
+		//Check to see if we're off-screen. If this is the case, then we disappear
+		//and start counting down again.
+		if (g_ship.x < -g_ship.width && g_ship.direction == 1)
+			g_ship.state = 0;
+		
+		if (g_ship.x > g_gameOptions.width && g_ship.direction == 0)
+			g_ship.state = 0;
 	}
 }
 
