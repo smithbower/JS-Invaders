@@ -1,3 +1,18 @@
+/****************************************************************
+ ****************************************************************
+ ** JS-Invaders!
+ **
+ ** A very simple (and only mostly complete) space-invaders clone
+ ** written as a toy example of HTML5 canvas.
+ **
+ ** Written by: Stephen Smithbower [smithy.s@gmail.com]
+ ** Written on: September 15th, 2013.
+ **
+ ** Use as you wish!
+ **
+ *****************************************************************
+ *****************************************************************/
+
 /////////////////////////////////
 //MISC GLOBALS
 /////////////////////////////////
@@ -116,6 +131,7 @@ var g_player = {
 
 var g_playerProjectiles = new Array();
 var g_playerMaxProjectiles = 1;
+var g_playerWins = false;
 
 var g_playerImgLoaded = false;
 var g_playerImg = null;
@@ -199,6 +215,7 @@ var g_gameOptions = {
 /////////////////////////////////
 /**
  * Init function - gets the whole thing rolling.
+ * Loads up required images, inits canvas.
  */
 var Init = function()
 {
@@ -270,6 +287,9 @@ var Init = function()
 	InitGameState();
 }
 
+/**
+ * Resets all game-state variables.
+ */
 function InitGameState()
 {
 	clearInterval(g_gameInterval);
@@ -286,6 +306,7 @@ function InitGameState()
 	g_player.y = g_gameOptions.height - 80;
 	g_player.state = 1;
 	g_player.score = 0;
+	g_playerWins = false;
 
 
 	//Create the monster array.
@@ -466,6 +487,15 @@ var Render = function(canvas)
 		canvas.lineTo(g_monsterProjectiles[i].x, g_monsterProjectiles[i].y + 8);
 		canvas.stroke();
 	}
+
+
+	//If we won, show message!
+	if (g_playerWins)
+	{
+		canvas.font = "100px Arial";
+		canvas.fillStyle = "#FFFFFF";
+		canvas.fillText("Player Wins!", 120, g_gameOptions.height/2);
+	}
 }
 
 
@@ -483,10 +513,26 @@ var Update = function(delta, canvas)
 		return;
 	}
 
+	if (13 in g_keysDown)
+	{
+		g_playerWins = true;
+		return;
+	}
+
 
 	//Only continue updating if the player is alive!
 	if (g_player.state == 0)
 		return;
+
+
+	/////////////////////////////////
+	//CHECK FOR GAME WIN
+	/////////////////////////////////
+	if (g_monsters.length == 0 || g_playerWins)
+	{
+		g_playerWins = true;
+		return;
+	}
 
 
 	/////////////////////////////////
@@ -566,7 +612,7 @@ var Update = function(delta, canvas)
 			if (g_playerProjectiles[i].x >= ColumnToX(g_monsters[m].column) &&
 				g_playerProjectiles[i].x <= ColumnToX(g_monsters[m].column) + g_monsterWidth &&
 				g_playerProjectiles[i].y <= RowToY(g_monsters[m].row) + g_monsterHeight &&
-				g_playerProjectiles[i].y >= RowToY(g_monsters[m].row))
+				g_playerProjectiles[i].y >= RowToY(g_monsters[m].row) && g_monsters[m].state == 1)
 			{
 				//Kill the projectile - kill the monster next update.
 				g_playerProjectiles.splice(i, 1);
@@ -797,24 +843,35 @@ var Update = function(delta, canvas)
 }
 
 
-
+/**
+ * Converts a monster's column index to an on-screen X position.
+ */
 function ColumnToX(column)
 {
 	return (column * g_monsterWidth) + (column * 15) + 15 + 
 		(g_monsterMoveCounter * g_monsterMoveDistance);
 }
 
+/**
+ * Converts a monster's row index to an on-screen Y position.
+ */
 function RowToY(row)
 {
 	return (row * g_monsterHeight) + (row * 30) + 60 +
 		   (g_monsterHeightOffset * g_monsterHeight);
 }
 
+/**
+ * Generates a random number between a min and max value.
+ */
 function BoundedRandom(min, max)
 {
 	return (Math.random() * (max - min)) + min;
 }
 
+/**
+ * Handles damaging a block.
+ */
 function HurtBlock(block)
 {
 	g_blocks[block].health--;
@@ -840,6 +897,9 @@ function HurtBlock(block)
 }
 
 
+/**
+ * Creates a block at a given position.
+ */
 function CreateBlock(x, y)
 {
 	g_blocks.push(g_block.create(x, g_gameOptions.height - y));
@@ -854,21 +914,9 @@ function CreateBlock(x, y)
 	g_blocks.push(g_block.create(x + g_block.width * 3, g_gameOptions.height - y - g_block.height * 2));
 }
 
-function RenderAnim(x, y, anim, canvas)
-{
-	//Note - we have to flip the coords because javascript is
-	//flipping row-major and column-major blah blah blah.
-	var dy = anim.length;
-	var dx = anim[0].length;
-
-	for (var ix = 0; ix < dx; ix++)
-		for (var iy = 0; iy < dy; iy++)
-		{
-			if (anim[iy][ix] == 1)
-				canvas.fillRect(x + ix, y + iy, 1, 1);
-		}
-}
-
+/**
+ * Resets the game logic. Leaves the current canvas context, does not reload images.
+ */
 function ResetGame()
 {
 	clearInterval(g_gameInterval);
