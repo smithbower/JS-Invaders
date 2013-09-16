@@ -333,7 +333,6 @@ function InitGameState()
 	g_monsterMoveUpdateCounter = 0;
 	g_monsterDirectionFlag = 0;
 	g_monsterHeightOffset = 0;
-	g_monsterStartCount = 0;
 
 
 	//Create the blocks.
