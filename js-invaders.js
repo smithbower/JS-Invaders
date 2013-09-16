@@ -31,7 +31,7 @@ var g_keysDown = {};
 /////////////////////////////////
 //MONSTERS
 /////////////////////////////////
-var g_monsterSpeed = 0.5;
+var g_monsterSpeed = 0.01;//0.5;
 var g_monsterMoveDistance = 4;
 
 var g_monsters = new Array();
@@ -495,6 +495,14 @@ var Render = function(canvas)
 		canvas.fillStyle = "#FFFFFF";
 		canvas.fillText("Player Wins!", 120, g_gameOptions.height/2);
 	}
+
+	//If we die, show message!
+	if (g_player.state == 0)
+	{
+		canvas.font = "100px Arial";
+		canvas.fillStyle = "#FFFFFF";
+		canvas.fillText("Player Loses!", 110, g_gameOptions.height/2);
+	}
 }
 
 
@@ -530,6 +538,15 @@ var Update = function(delta, canvas)
 	if (g_monsters.length == 0 || g_playerWins)
 	{
 		g_playerWins = true;
+		return;
+	}
+
+	/////////////////////////////////
+	//CHECK FOR GAME LOSE
+	/////////////////////////////////
+	if (g_monsterHeightOffset > 10)
+	{
+		g_player.state = 0;
 		return;
 	}
 
