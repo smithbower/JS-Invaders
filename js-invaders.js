@@ -10,6 +10,15 @@
  **
  ** Use as you wish!
  **
+ ** KNOWN ISSUES:
+ ** --------------------------------------------------------------
+ ** - Projectiles use lazy point collision detection, but are
+ **   drawn as 16px x 3px lines. In general not a big deal, and
+ **   Stephen was too lazy to implement proper collision detection
+ **
+ ** - Collision detection is done via Monster/Player bounding boxes
+ **   and is not pixel-perfect. This might annoy hardcore players.
+ **
  **
  ** CONTROLS:
  ** --------------------------------------------------------------
