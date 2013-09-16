@@ -202,7 +202,7 @@ var g_block = {
 /////////////////////////////////
 var g_gameOptions = {
 	width: 800,
-	height: 850
+	height: 750
 };
 
 
@@ -544,7 +544,7 @@ var Update = function(delta, canvas)
 	/////////////////////////////////
 	//CHECK FOR GAME LOSE
 	/////////////////////////////////
-	if (g_monsterHeightOffset > 10)
+	if (g_monsterHeightOffset > 7)
 	{
 		g_player.state = 0;
 		return;
@@ -691,7 +691,7 @@ var Update = function(delta, canvas)
 		
 
 		//Figure out which direction we're moving.
-		if (g_monsterMoveCounter > 42)
+		if (g_monsterMoveCounter > 44)
 		{
 			g_monsterDirectionFlag = 1;
 			g_monsterHeightOffset++;
